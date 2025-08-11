@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "forge-std/Test.sol";
+import "./OnchainAuthTrap.sol";
+import "./ProtectedTreasury.sol";
+import "./TestToken.sol";
+
+contract AuthTrapTest is Test {
+    OnchainAuthTrap trap;
+    ProtectedTreasury treasury;
+    TestToken token;
+    address owner = address(0xABCD);
+
+    function setUp() public {
+        vm.startPrank(owner);
+        trap = new OnchainAuthTrap(1);
+        token = new TestToken();
+        treasury = new ProtectedTreasury(address(token), address(trap));
+        token.transfer(address(treasury), 1000 ether);
+        vm.stopPrank();
+    }
+
+    function testWithdrawWithCorrectCode() public {
+        uint256 code = trap.currentCode();
+        vm.startPrank(owner);
+        treasury.withdraw(100 ether, code);
+        vm.stopPrank();
+        assertEq(token.balanceOf(owner), 100 ether);
+    }
+
+    function testWithdrawWithWrongCodeFails() public {
+        uint256 wrongCode = 999999;
+        vm.startPrank(owner);
+        vm.expectRevert();
+        treasury.withdraw(100 ether, wrongCode);
+        vm.stopPrank();
+    }
+}
